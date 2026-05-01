@@ -170,6 +170,7 @@ class ReaderActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        adapter.release()
         scope.cancel()
         pipeline.release()
     }

@@ -25,8 +25,12 @@ class MediaProjectionRequestActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val mpm = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
-        launcher.launch(mpm.createScreenCaptureIntent())
+        // Avoid re-prompting the user if the activity is recreated (e.g. config change)
+        // while the launcher is still waiting for a result.
+        if (savedInstanceState == null) {
+            val mpm = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+            launcher.launch(mpm.createScreenCaptureIntent())
+        }
     }
 
     companion object {
