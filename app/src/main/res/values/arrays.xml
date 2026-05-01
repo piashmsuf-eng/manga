@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="ocr_scripts">
+        <item>Auto</item>
+        <item>Japanese</item>
+        <item>Korean</item>
+        <item>Chinese</item>
+        <item>Latin</item>
+    </string-array>
+    <string-array name="ocr_scripts_values">
+        <item>auto</item>
+        <item>japanese</item>
+        <item>korean</item>
+        <item>chinese</item>
+        <item>latin</item>
+    </string-array>
+</resources>

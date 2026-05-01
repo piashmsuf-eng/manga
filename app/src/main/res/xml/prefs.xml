@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+    <PreferenceCategory app:title="@string/title_settings">
+        <ListPreference
+            app:key="target_lang"
+            app:title="@string/pref_target_lang_title"
+            app:summary="@string/pref_target_lang_summary"
+            app:defaultValue="en" />
+
+        <ListPreference
+            app:key="source_lang"
+            app:title="@string/pref_source_lang_title"
+            app:summary="@string/pref_source_lang_summary"
+            app:defaultValue="auto" />
+
+        <ListPreference
+            app:key="ocr_script"
+            app:title="@string/pref_ocr_script_title"
+            app:summary="@string/pref_ocr_script_summary"
+            app:defaultValue="auto"
+            app:entries="@array/ocr_scripts"
+            app:entryValues="@array/ocr_scripts_values" />
+
+        <SwitchPreferenceCompat
+            app:key="auto_translate_reader"
+            app:title="@string/pref_auto_translate_title"
+            app:summary="@string/pref_auto_translate_summary"
+            app:defaultValue="true" />
+    </PreferenceCategory>
+</PreferenceScreen>

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="manga_primary">#FF7A4FE0</color>
+    <color name="manga_primary_dark">#FF3F1FB0</color>
+    <color name="manga_accent">#FFE0AC4F</color>
+    <color name="overlay_panel_bg">#EE111111</color>
+    <color name="pill_bg">#EE3F1FB0</color>
+</resources>
