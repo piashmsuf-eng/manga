@@ -21,6 +21,7 @@ import com.piashmsuf.manga.databinding.ActivityReaderBinding
 import com.piashmsuf.manga.model.MangaItem
 import com.piashmsuf.manga.translate.TranslationPipeline
 import com.piashmsuf.manga.util.Prefs
+import com.piashmsuf.manga.util.runSuspendCatching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -102,7 +103,7 @@ class ReaderActivity : AppCompatActivity() {
                 binding.translationProgress.visibility = View.GONE
                 return@launch
             }
-            val result = runCatching { pipeline.process(bitmap) }
+            val result = runSuspendCatching { pipeline.process(bitmap) }
                 .onFailure { binding.translation.text = it.localizedMessage ?: "Error" }
                 .getOrNull()
             binding.translationProgress.visibility = View.GONE

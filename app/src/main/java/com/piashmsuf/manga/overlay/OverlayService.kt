@@ -21,6 +21,7 @@ import com.piashmsuf.manga.databinding.OverlayPillBinding
 import com.piashmsuf.manga.databinding.OverlayPanelBinding
 import com.piashmsuf.manga.translate.TranslationPipeline
 import com.piashmsuf.manga.util.Prefs
+import com.piashmsuf.manga.util.runSuspendCatching
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -158,7 +159,7 @@ class OverlayService : Service() {
         translateJob?.cancel()
         translateJob = scope.launch {
             showPanelLoading()
-            val result = runCatching { pipeline.process(bitmap) }
+            val result = runSuspendCatching { pipeline.process(bitmap) }
                 .onFailure { showPanelError(it.localizedMessage ?: "Error") }
                 .getOrNull() ?: return@launch
             showPanelResult(result)

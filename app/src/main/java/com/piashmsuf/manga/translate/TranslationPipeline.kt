@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Rect
 import com.google.mlkit.vision.text.Text
 import com.piashmsuf.manga.util.Prefs
+import com.piashmsuf.manga.util.runSuspendCatching
 
 /**
  * Single entry-point that combines OCR + translation. Used by both the in-reader
@@ -33,7 +34,7 @@ class TranslationPipeline(
         val blocks = recognized.textBlocks.mapNotNull { block ->
             val text = block.text.trim()
             if (text.isEmpty()) return@mapNotNull null
-            val translated = runCatching { translator.translate(text, sourceLang, target) }
+            val translated = runSuspendCatching { translator.translate(text, sourceLang, target) }
                 .getOrDefault(text)
             Block(text, translated, block.boundingBox ?: Rect())
         }
