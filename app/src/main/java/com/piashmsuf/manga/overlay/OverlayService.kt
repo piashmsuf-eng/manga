@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.IBinder
 import android.provider.Settings
 import android.util.Log
+import android.view.ContextThemeWrapper
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -47,6 +48,14 @@ class OverlayService : Service() {
 
     private var pillView: View? = null
     private var panelView: View? = null
+
+    /** Theme-aware context for inflating overlay layouts. The bare Service
+     *  context does not resolve Material3 attributes like
+     *  `?attr/selectableItemBackgroundBorderless`, which causes
+     *  `Error inflating class <unknown>` on overlay_pill.xml line 32. */
+    private val themedContext: Context by lazy {
+        ContextThemeWrapper(this, R.style.Theme_Manga)
+    }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var translateJob: Job? = null
 
@@ -132,7 +141,7 @@ class OverlayService : Service() {
 
     private fun showPill() {
         if (pillView != null) return
-        val binding = OverlayPillBinding.inflate(LayoutInflater.from(this))
+        val binding = OverlayPillBinding.inflate(LayoutInflater.from(themedContext))
         val view: View = binding.root
 
         val type =
@@ -240,7 +249,7 @@ class OverlayService : Service() {
         val existing = panelView
         val binding: OverlayPanelBinding
         if (existing == null) {
-            binding = OverlayPanelBinding.inflate(LayoutInflater.from(this))
+            binding = OverlayPanelBinding.inflate(LayoutInflater.from(themedContext))
             val type =
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
