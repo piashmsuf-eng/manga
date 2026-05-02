@@ -12,6 +12,8 @@
 
     <string name="need_overlay_permission">Allow drawing over other apps to use the floating translator.</string>
     <string name="translator_started">Floating translator running. Tap the pill to translate.</string>
+    <string name="translator_failed_to_start">Translator failed to start: %1$s</string>
+    <string name="capture_failed">Screen capture failed: %1$s</string>
 
     <string name="reader_translate">Translate</string>
     <string name="reader_close">Close</string>

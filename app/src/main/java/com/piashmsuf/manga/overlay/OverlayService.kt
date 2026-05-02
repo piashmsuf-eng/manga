@@ -7,11 +7,14 @@ import android.content.Intent
 import android.graphics.PixelFormat
 import android.os.Build
 import android.os.IBinder
+import android.provider.Settings
+import android.util.Log
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.piashmsuf.manga.MainActivity
@@ -47,14 +50,54 @@ class OverlayService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var translateJob: Job? = null
 
+    private var foregroundStarted = false
+
     override fun onCreate() {
         super.onCreate()
         instance = this
-        wm = getSystemService(WINDOW_SERVICE) as WindowManager
-        prefs = Prefs(this)
-        pipeline = TranslationPipeline(prefs)
-        startForegroundCompat()
-        showPill()
+
+        // 1) Always call startForeground first — if we don't and onCreate throws
+        //    later, the system raises ForegroundServiceDidNotStartInTimeException
+        //    and the user just sees the launcher ("auto close").
+        try {
+            wm = getSystemService(WINDOW_SERVICE) as WindowManager
+            prefs = Prefs(this)
+            pipeline = TranslationPipeline(prefs)
+            startForegroundCompat()
+            foregroundStarted = true
+        } catch (t: Throwable) {
+            Log.e(TAG, "startForeground failed", t)
+            instance = null
+            toast(getString(R.string.translator_failed_to_start, t.localizedMessage ?: t.javaClass.simpleName))
+            stopSelf()
+            return
+        }
+
+        // 2) Re-check the overlay permission — the user could have revoked
+        //    it between MainActivity's check and the service actually starting.
+        if (!Settings.canDrawOverlays(this)) {
+            Log.e(TAG, "SYSTEM_ALERT_WINDOW not granted at service start")
+            toast(getString(R.string.need_overlay_permission))
+            instance = null
+            stopSelf()
+            return
+        }
+
+        // 3) Add the pill window. addView throws BadTokenException on a few
+        //    OEM ROMs even when canDrawOverlays() returns true; surface it as
+        //    a clear error rather than a silent service crash.
+        try {
+            showPill()
+        } catch (t: Throwable) {
+            Log.e(TAG, "showPill failed", t)
+            toast(getString(R.string.translator_failed_to_start, t.localizedMessage ?: t.javaClass.simpleName))
+            instance = null
+            stopSelf()
+        }
+    }
+
+    private fun toast(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
     private fun startForegroundCompat() {
@@ -232,6 +275,9 @@ class OverlayService : Service() {
         when (intent?.action) {
             ACTION_STOP -> { stopSelf(); return START_NOT_STICKY }
         }
+        // If onCreate failed earlier we've already called stopSelf(); make that
+        // explicit to the framework so it doesn't try to redeliver the intent.
+        if (!foregroundStarted) return START_NOT_STICKY
         return START_STICKY
     }
 
@@ -250,6 +296,7 @@ class OverlayService : Service() {
     }
 
     companion object {
+        private const val TAG = "OverlayService"
         private const val NOTIF_ID = 0xCAFE
         const val ACTION_STOP = "com.piashmsuf.manga.OVERLAY_STOP"
 

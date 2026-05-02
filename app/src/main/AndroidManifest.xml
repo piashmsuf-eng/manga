@@ -56,13 +56,17 @@
             android:label="@string/title_settings"
             android:parentActivityName=".MainActivity" />
 
-        <!-- Transparent helper to request screen capture consent -->
+        <!-- Transparent helper to request screen capture consent.
+             NOTE: launchMode is intentionally "standard" (default). Earlier we used
+             "singleInstance" but that puts the consent activity into its own task,
+             and on some Android 14 devices the system MediaProjection consent
+             dialog doesn't deliver its result back into a singleInstance task,
+             causing the pill flow to look like it auto-closes immediately. -->
         <activity
             android:name=".overlay.MediaProjectionRequestActivity"
             android:exported="false"
             android:theme="@style/Theme.Transparent"
-            android:excludeFromRecents="true"
-            android:launchMode="singleInstance" />
+            android:excludeFromRecents="true" />
 
         <!-- Floating translation pill -->
         <service
