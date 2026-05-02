@@ -26,5 +26,34 @@
             app:title="@string/pref_auto_translate_title"
             app:summary="@string/pref_auto_translate_summary"
             app:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            app:key="hide_original_in_reader"
+            app:title="@string/pref_hide_original_title"
+            app:summary="@string/pref_hide_original_summary"
+            app:defaultValue="true" />
+
+        <SwitchPreferenceCompat
+            app:key="auto_scroll_pages"
+            app:title="@string/pref_auto_scroll_title"
+            app:summary="@string/pref_auto_scroll_summary"
+            app:defaultValue="true" />
+
+        <ListPreference
+            app:key="auto_scroll_delay_sec"
+            app:title="@string/pref_auto_scroll_delay_title"
+            app:summary="@string/pref_auto_scroll_delay_summary"
+            app:defaultValue="5"
+            app:entries="@array/auto_scroll_delays"
+            app:entryValues="@array/auto_scroll_delays_values"
+            app:dependency="auto_scroll_pages" />
+
+        <ListPreference
+            app:key="live_mode_interval_ms"
+            app:title="@string/pref_live_interval_title"
+            app:summary="@string/pref_live_interval_summary"
+            app:defaultValue="1500"
+            app:entries="@array/live_intervals"
+            app:entryValues="@array/live_intervals_values" />
     </PreferenceCategory>
 </PreferenceScreen>

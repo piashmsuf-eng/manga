@@ -47,6 +47,7 @@ class OverlayService : Service() {
     private lateinit var pipeline: TranslationPipeline
 
     private var pillView: View? = null
+    private var pillBinding: OverlayPillBinding? = null
     private var panelView: View? = null
 
     /** Theme-aware context for inflating overlay layouts. The bare Service
@@ -60,6 +61,15 @@ class OverlayService : Service() {
     private var translateJob: Job? = null
 
     private var foregroundStarted = false
+
+    /** True when the user has enabled "live mode" via long-press. While true,
+     *  ScreenCaptureService keeps the MediaProjection alive and feeds us
+     *  frames at [Prefs.liveModeIntervalMs]. */
+    @Volatile private var liveMode: Boolean = false
+
+    /** Guards against translation pile-up when frames arrive faster than
+     *  OCR + translate can keep up. */
+    @Volatile private var translating: Boolean = false
 
     override fun onCreate() {
         super.onCreate()
@@ -142,6 +152,7 @@ class OverlayService : Service() {
     private fun showPill() {
         if (pillView != null) return
         val binding = OverlayPillBinding.inflate(LayoutInflater.from(themedContext))
+        pillBinding = binding
         val view: View = binding.root
 
         val type =
@@ -171,27 +182,46 @@ class OverlayService : Service() {
         var touchX = 0f
         var touchY = 0f
         var moved = false
+        var longPressFired = false
+        val longPressMs = android.view.ViewConfiguration.getLongPressTimeout().toLong()
+        val longPressRunnable = Runnable {
+            if (!moved) {
+                longPressFired = true
+                view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                onPillLongPress()
+            }
+        }
         view.setOnTouchListener { _, event ->
             when (event.action) {
                 MotionEvent.ACTION_DOWN -> {
                     startX = lp.x; startY = lp.y
                     touchX = event.rawX; touchY = event.rawY
                     moved = false
+                    longPressFired = false
+                    view.postDelayed(longPressRunnable, longPressMs)
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = event.rawX - touchX
                     val dy = event.rawY - touchY
-                    if (!moved && (abs(dx) > 10 || abs(dy) > 10)) moved = true
+                    if (!moved && (abs(dx) > 10 || abs(dy) > 10)) {
+                        moved = true
+                        view.removeCallbacks(longPressRunnable)
+                    }
                     lp.x = (startX + dx).toInt()
                     lp.y = (startY + dy).toInt()
                     wm.updateViewLayout(view, lp)
                     true
                 }
                 MotionEvent.ACTION_UP -> {
-                    if (!moved) onPillTap()
+                    view.removeCallbacks(longPressRunnable)
+                    if (!moved && !longPressFired) onPillTap()
                     prefs.pillX = lp.x
                     prefs.pillY = lp.y
+                    true
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    view.removeCallbacks(longPressRunnable)
                     true
                 }
                 else -> false
@@ -201,20 +231,66 @@ class OverlayService : Service() {
     }
 
     private fun onPillTap() {
-        // Request screen-capture consent; ScreenCaptureService will deliver a frame back.
-        val intent = MediaProjectionRequestActivity.intent(this)
+        // Single-shot translate: ask for screen-capture consent, capture one
+        // frame, then ScreenCaptureService stops itself.
+        if (liveMode) {
+            // Already in live mode — do nothing; frames are flowing already.
+            toast(getString(R.string.live_mode_on))
+            return
+        }
+        val intent = MediaProjectionRequestActivity.intent(this, continuous = false)
         startActivity(intent)
+    }
+
+    private fun onPillLongPress() {
+        if (liveMode) {
+            // Turning live mode OFF.
+            liveMode = false
+            ScreenCaptureService.stop(this)
+            updateLiveIndicator()
+            toast(getString(R.string.live_mode_off))
+            return
+        }
+        // Turning live mode ON — grab consent and start continuous capture.
+        liveMode = true
+        updateLiveIndicator()
+        toast(getString(R.string.live_mode_on))
+        val intent = MediaProjectionRequestActivity.intent(
+            this,
+            continuous = true,
+            intervalMs = prefs.liveModeIntervalMs,
+        )
+        startActivity(intent)
+    }
+
+    private fun updateLiveIndicator() {
+        val binding = pillBinding ?: return
+        binding.root.setBackgroundResource(
+            if (liveMode) R.drawable.bg_pill_live else R.drawable.bg_pill
+        )
     }
 
     /** Called by [ScreenCaptureService] once a frame is captured. */
     fun onFrameCaptured(bitmap: android.graphics.Bitmap) {
-        translateJob?.cancel()
+        if (liveMode && translating) {
+            // A previous frame is still being processed — drop this one to
+            // avoid pile-up. The next frame from ScreenCaptureService will
+            // catch us up to the current screen state.
+            bitmap.recycle()
+            return
+        }
+        if (!liveMode) translateJob?.cancel()
         translateJob = scope.launch {
-            showPanelLoading()
-            val result = runSuspendCatching { pipeline.process(bitmap) }
-                .onFailure { showPanelError(it.localizedMessage ?: "Error") }
-                .getOrNull() ?: return@launch
-            showPanelResult(result)
+            translating = true
+            try {
+                if (!liveMode) showPanelLoading()
+                val result = runSuspendCatching { pipeline.process(bitmap) }
+                    .onFailure { showPanelError(it.localizedMessage ?: "Error") }
+                    .getOrNull() ?: return@launch
+                showPanelResult(result)
+            } finally {
+                translating = false
+            }
         }
     }
 
@@ -295,10 +371,12 @@ class OverlayService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         instance = null
+        liveMode = false
         translateJob?.cancel()
         scope.cancel()
         runCatching { pillView?.let { wm.removeView(it) } }
         runCatching { panelView?.let { wm.removeView(it) } }
+        pillBinding = null
         pipeline.release()
         // Stop screen capture, if any
         ScreenCaptureService.stop(this)

@@ -40,4 +40,21 @@
     <string name="pref_auto_translate_summary">Translate each page as you turn it in the reader.</string>
     <string name="pref_ocr_script_title">OCR script</string>
     <string name="pref_ocr_script_summary">Use a specific OCR model. Auto tries Japanese, Korean, Chinese, Latin.</string>
+
+    <string name="pref_hide_original_title">Hide original text</string>
+    <string name="pref_hide_original_summary">Cover the foreign text on each page with the translation. Turn this off to see both.</string>
+
+    <string name="pref_auto_scroll_title">Auto-advance pages</string>
+    <string name="pref_auto_scroll_summary">Automatically scroll to the next page after a page has been translated.</string>
+
+    <string name="pref_auto_scroll_delay_title">Auto-advance delay</string>
+    <string name="pref_auto_scroll_delay_summary">How long to read each translated page before scrolling.</string>
+
+    <string name="pref_live_interval_title">Live mode interval</string>
+    <string name="pref_live_interval_summary">How often the floating pill re-translates the screen when live mode is on.</string>
+
+    <string name="reader_auto_scroll">Auto-scroll</string>
+    <string name="live_mode_on">Live mode on \u2014 long-press the pill to stop.</string>
+    <string name="live_mode_off">Live mode off.</string>
+    <string name="live_mode_hint">Tap to translate once. Long-press to toggle live mode.</string>
 </resources>

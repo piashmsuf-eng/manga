@@ -28,9 +28,11 @@ import com.piashmsuf.manga.MangaApp
 import com.piashmsuf.manga.R
 
 /**
- * One-shot screen capture service. Started after the user grants
- * MediaProjection consent; captures a single frame, hands it to the running
- * [OverlayService], then stops itself.
+ * Screen capture service. Two modes:
+ *   - one-shot: captures a single frame, hands it to [OverlayService], then
+ *     stops itself (used by the pill's tap-to-translate flow).
+ *   - continuous: keeps the [MediaProjection] alive and emits a frame at most
+ *     every [intervalMs] ms (used by the pill's live-translation mode).
  */
 class ScreenCaptureService : Service() {
 
@@ -39,6 +41,11 @@ class ScreenCaptureService : Service() {
     private var imageReader: ImageReader? = null
     private val handlerThread = HandlerThread("manga-screen-capture").apply { start() }
     private val handler = Handler(handlerThread.looper)
+
+    @Volatile private var continuous: Boolean = false
+    @Volatile private var intervalMs: Int = 1500
+    @Volatile private var lastDeliveryNs: Long = 0L
+    @Volatile private var captured: Boolean = false
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) { stopSelf(); return START_NOT_STICKY }
@@ -66,6 +73,8 @@ class ScreenCaptureService : Service() {
             @Suppress("DEPRECATION")
             intent?.getParcelableExtra(EXTRA_DATA)
         }
+        continuous = intent?.getBooleanExtra(EXTRA_CONTINUOUS, false) ?: false
+        intervalMs = intent?.getIntExtra(EXTRA_INTERVAL_MS, 1500) ?: 1500
         if (resultCode == 0 || data == null) {
             Log.e(TAG, "missing extras: resultCode=$resultCode data=$data")
             stopSelf(); return START_NOT_STICKY
@@ -136,9 +145,24 @@ class ScreenCaptureService : Service() {
             handler,
         )
 
-        var captured = false
+        captured = false
+        lastDeliveryNs = 0L
         reader.setOnImageAvailableListener({ r ->
-            if (captured) return@setOnImageAvailableListener
+            if (!continuous && captured) {
+                // One-shot mode: we already delivered, ignore further frames.
+                runCatching { r.acquireLatestImage()?.close() }
+                return@setOnImageAvailableListener
+            }
+            // Continuous mode: rate-limit to roughly intervalMs between deliveries.
+            if (continuous) {
+                val now = System.nanoTime()
+                val elapsedMs = (now - lastDeliveryNs) / 1_000_000
+                if (lastDeliveryNs != 0L && elapsedMs < intervalMs) {
+                    runCatching { r.acquireLatestImage()?.close() }
+                    return@setOnImageAvailableListener
+                }
+                lastDeliveryNs = now
+            }
             val image = r.acquireLatestImage() ?: return@setOnImageAvailableListener
             try {
                 val plane = image.planes[0]
@@ -155,7 +179,7 @@ class ScreenCaptureService : Service() {
                 val cropped = Bitmap.createBitmap(bitmap, 0, 0, width, height)
                 bitmap.recycle()
                 captured = true
-                deliverAndStop(cropped)
+                if (continuous) deliverContinuous(cropped) else deliverAndStop(cropped)
             } finally {
                 image.close()
             }
@@ -171,6 +195,18 @@ class ScreenCaptureService : Service() {
         }
         // Tear down on a fresh handler tick so the buffer dispatch fully unwinds first.
         handler.post { stopSelf() }
+    }
+
+    private fun deliverContinuous(bitmap: Bitmap) {
+        // Live mode: keep the MediaProjection alive and just feed the frame
+        // to OverlayService. OverlayService is responsible for skipping frames
+        // while a translation is in flight so we don't pile up work.
+        val service = OverlayService.current()
+        if (service != null) {
+            Handler(Looper.getMainLooper()).post { service.onFrameCaptured(bitmap) }
+        } else {
+            bitmap.recycle()
+        }
     }
 
     private fun cleanup() {
@@ -195,12 +231,22 @@ class ScreenCaptureService : Service() {
         private const val NOTIF_ID = 0xFACE
         private const val EXTRA_RESULT_CODE = "extra_result_code"
         private const val EXTRA_DATA = "extra_data"
+        private const val EXTRA_CONTINUOUS = "extra_continuous"
+        private const val EXTRA_INTERVAL_MS = "extra_interval_ms"
         const val ACTION_STOP = "com.piashmsuf.manga.SCREEN_CAPTURE_STOP"
 
-        fun start(ctx: Context, resultCode: Int, data: Intent) {
+        fun start(
+            ctx: Context,
+            resultCode: Int,
+            data: Intent,
+            continuous: Boolean = false,
+            intervalMs: Int = 1500,
+        ) {
             val intent = Intent(ctx, ScreenCaptureService::class.java)
                 .putExtra(EXTRA_RESULT_CODE, resultCode)
                 .putExtra(EXTRA_DATA, data)
+                .putExtra(EXTRA_CONTINUOUS, continuous)
+                .putExtra(EXTRA_INTERVAL_MS, intervalMs)
             ContextCompat.startForegroundService(ctx, intent)
         }
 
