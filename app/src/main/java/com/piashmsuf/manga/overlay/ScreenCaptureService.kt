@@ -15,6 +15,7 @@ import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
+import android.os.Looper
 import android.os.IBinder
 import android.util.DisplayMetrics
 import android.view.Surface
@@ -41,7 +42,12 @@ class ScreenCaptureService : Service() {
         if (intent?.action == ACTION_STOP) { stopSelf(); return START_NOT_STICKY }
         startInForeground()
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
-        val data = intent?.getParcelableExtra<Intent>(EXTRA_DATA)
+        val data: Intent? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent?.getParcelableExtra(EXTRA_DATA, Intent::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            intent?.getParcelableExtra(EXTRA_DATA)
+        }
         if (resultCode == 0 || data == null) {
             stopSelf(); return START_NOT_STICKY
         }
@@ -65,6 +71,10 @@ class ScreenCaptureService : Service() {
     }
 
     private fun captureSingleFrame(resultCode: Int, data: Intent) {
+        // Release any leftover resources from a previous (in-flight) capture
+        // before allocating new ones — guards against the user tapping the pill
+        // twice quickly and granting consent each time.
+        cleanup()
         val mpm = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         val mp = mpm.getMediaProjection(resultCode, data)
         projection = mp
@@ -121,7 +131,12 @@ class ScreenCaptureService : Service() {
     }
 
     private fun deliverAndStop(bitmap: Bitmap) {
-        OverlayService.current()?.onFrameCaptured(bitmap)
+        // Hop to the main thread so OverlayService's coroutine state is
+        // mutated from a single, predictable thread.
+        val service = OverlayService.current()
+        if (service != null) {
+            Handler(Looper.getMainLooper()).post { service.onFrameCaptured(bitmap) }
+        }
         // Tear down on a fresh handler tick so the buffer dispatch fully unwinds first.
         handler.post { stopSelf() }
     }
