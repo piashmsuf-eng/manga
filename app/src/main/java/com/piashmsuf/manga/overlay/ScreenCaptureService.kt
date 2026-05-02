@@ -20,6 +20,8 @@ import android.os.IBinder
 import android.util.DisplayMetrics
 import android.view.Surface
 import android.view.WindowManager
+import android.util.Log
+import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.piashmsuf.manga.MangaApp
@@ -40,7 +42,23 @@ class ScreenCaptureService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) { stopSelf(); return START_NOT_STICKY }
-        startInForeground()
+        try {
+            // Android 14+: foreground type MUST be declared on this call AND
+            // posted before getMediaProjection(). Failing here silently aborts
+            // the whole pill-tap flow, so log and toast.
+            startInForeground()
+        } catch (t: Throwable) {
+            Log.e(TAG, "startForeground failed", t)
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(
+                    applicationContext,
+                    getString(R.string.capture_failed, t.localizedMessage ?: t.javaClass.simpleName),
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val resultCode = intent?.getIntExtra(EXTRA_RESULT_CODE, 0) ?: 0
         val data: Intent? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent?.getParcelableExtra(EXTRA_DATA, Intent::class.java)
@@ -49,9 +67,23 @@ class ScreenCaptureService : Service() {
             intent?.getParcelableExtra(EXTRA_DATA)
         }
         if (resultCode == 0 || data == null) {
+            Log.e(TAG, "missing extras: resultCode=$resultCode data=$data")
             stopSelf(); return START_NOT_STICKY
         }
-        captureSingleFrame(resultCode, data)
+        try {
+            captureSingleFrame(resultCode, data)
+        } catch (t: Throwable) {
+            Log.e(TAG, "captureSingleFrame failed", t)
+            Handler(Looper.getMainLooper()).post {
+                Toast.makeText(
+                    applicationContext,
+                    getString(R.string.capture_failed, t.localizedMessage ?: t.javaClass.simpleName),
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+            cleanup()
+            stopSelf()
+        }
         return START_NOT_STICKY
     }
 
@@ -159,6 +191,7 @@ class ScreenCaptureService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     companion object {
+        private const val TAG = "ScreenCaptureService"
         private const val NOTIF_ID = 0xFACE
         private const val EXTRA_RESULT_CODE = "extra_result_code"
         private const val EXTRA_DATA = "extra_data"
