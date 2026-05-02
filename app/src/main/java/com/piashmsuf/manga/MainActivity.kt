@@ -36,8 +36,12 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
         if (uri != null) {
-            val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
-            contentResolver.takePersistableUriPermission(uri, flags)
+            // takePersistableUriPermission only accepts read/write flags — the
+            // persistable bit is implicit in the call itself.
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
             prefs.libraryRoots = prefs.libraryRoots + uri.toString()
             refreshLibrary()
         }

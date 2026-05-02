@@ -170,9 +170,9 @@ class ReaderActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        adapter.release()
+        if (::adapter.isInitialized) adapter.release()
         scope.cancel()
-        pipeline.release()
+        if (::pipeline.isInitialized) pipeline.release()
     }
 
     companion object {
