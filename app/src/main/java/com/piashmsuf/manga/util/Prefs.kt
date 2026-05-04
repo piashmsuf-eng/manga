@@ -58,6 +58,36 @@ class Prefs(context: Context) {
         get() = sp.getInt(KEY_PILL_Y, -1)
         set(value) = sp.edit().putInt(KEY_PILL_Y, value).apply()
 
+    /** "ltr" / "rtl" / "vertical" — controls the reader's swipe orientation. */
+    var readingDirection: String
+        get() = sp.getString(KEY_READ_DIR, "ltr") ?: "ltr"
+        set(value) = sp.edit().putString(KEY_READ_DIR, value).apply()
+
+    /** 0..255 alpha of the dimming overlay layered on top of the reader. */
+    var readerDimAlpha: Int
+        get() = sp.getInt(KEY_READER_DIM, 0).coerceIn(0, 200)
+        set(value) = sp.edit().putInt(KEY_READER_DIM, value.coerceIn(0, 200)).apply()
+
+    /** Keep the screen awake while the reader is in foreground. */
+    var keepScreenOn: Boolean
+        get() = sp.getBoolean(KEY_KEEP_SCREEN_ON, true)
+        set(value) = sp.edit().putBoolean(KEY_KEEP_SCREEN_ON, value).apply()
+
+    /** Cache OCR + translation results to disk so re-opening pages is instant. */
+    var translationCacheEnabled: Boolean
+        get() = sp.getBoolean(KEY_CACHE, true)
+        set(value) = sp.edit().putBoolean(KEY_CACHE, value).apply()
+
+    /** Library sort key: "title", "title_desc", "added", "last_read", "pages". */
+    var librarySort: String
+        get() = sp.getString(KEY_SORT, "title") ?: "title"
+        set(value) = sp.edit().putString(KEY_SORT, value).apply()
+
+    /** Library filter: "all" or "favorites". */
+    var libraryFilter: String
+        get() = sp.getString(KEY_LIB_FILTER, "all") ?: "all"
+        set(value) = sp.edit().putString(KEY_LIB_FILTER, value).apply()
+
     companion object {
         private const val KEY_SOURCE = "source_lang"
         private const val KEY_TARGET = "target_lang"
@@ -70,5 +100,11 @@ class Prefs(context: Context) {
         private const val KEY_ROOTS = "library_roots"
         private const val KEY_PILL_X = "pill_x"
         private const val KEY_PILL_Y = "pill_y"
+        private const val KEY_READ_DIR = "reading_direction"
+        private const val KEY_READER_DIM = "reader_dim_alpha"
+        private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+        private const val KEY_CACHE = "translation_cache_enabled"
+        private const val KEY_SORT = "library_sort"
+        private const val KEY_LIB_FILTER = "library_filter"
     }
 }

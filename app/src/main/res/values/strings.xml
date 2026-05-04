@@ -2,25 +2,49 @@
 <resources>
     <string name="app_name">Manga</string>
     <string name="title_settings">Settings</string>
+    <string name="title_about">About</string>
+    <string name="title_bookmarks">Bookmarks</string>
+    <string name="title_history">History</string>
+    <string name="title_continue">Continue reading</string>
 
     <string name="empty_library">Your library is empty.\nTap the + button to add a folder containing manga.</string>
+    <string name="empty_search">No manga matched your search.</string>
+    <string name="empty_favorites">No favorites yet. Tap the star on any manga to add it here.</string>
+    <string name="empty_bookmarks">No bookmarks yet. Long-press a page in the reader to add one.</string>
+    <string name="empty_history">No translations yet. Tap the floating pill on any screen to translate.</string>
     <string name="add_folder">Add manga folder</string>
+    <string name="search_library">Search library</string>
     <string name="start_translator">Start translator</string>
     <string name="stop">Stop</string>
     <string name="settings">Settings</string>
     <string name="grant">Grant</string>
+    <string name="favorite">Favorite</string>
+    <string name="unfavorite">Remove from favorites</string>
 
     <string name="need_overlay_permission">Allow drawing over other apps to use the floating translator.</string>
     <string name="translator_started">Floating translator running. Tap the pill to translate.</string>
     <string name="translator_failed_to_start">Translator failed to start: %1$s</string>
-    <string name="capture_failed">Screen capture failed: %1$s</string>
+    <string name="live_mode_on">Live mode on. Frames will be translated continuously.</string>
+    <string name="live_mode_off">Live mode off.</string>
+    <string name="capture_failed">Capture failed: %1$s</string>
 
     <string name="reader_translate">Translate</string>
     <string name="reader_close">Close</string>
     <string name="reader_auto">Auto</string>
+    <string name="reader_auto_scroll">Loop</string>
+    <string name="reader_brightness">Brightness</string>
+    <string name="reader_bookmark">Bookmark this page</string>
+    <string name="reader_bookmark_added">Page bookmarked</string>
+    <string name="reader_bookmark_removed">Bookmark removed</string>
+    <string name="reader_jump_to_bookmark">Jump to bookmark</string>
+    <string name="reader_resume">Resumed at page %1$d</string>
     <string name="translating">Translating…</string>
     <string name="no_text_found">No translatable text found.</string>
     <string name="copy">Copy</string>
+    <string name="copied_to_clipboard">Copied translation</string>
+    <string name="clear_history">Clear history</string>
+    <string name="clear_translation_cache">Clear translation cache</string>
+    <string name="cache_cleared">Translation cache cleared.</string>
 
     <string name="channel_overlay">Translator overlay</string>
     <string name="channel_overlay_desc">Keeps the floating translation pill alive.</string>
@@ -40,21 +64,24 @@
     <string name="pref_auto_translate_summary">Translate each page as you turn it in the reader.</string>
     <string name="pref_ocr_script_title">OCR script</string>
     <string name="pref_ocr_script_summary">Use a specific OCR model. Auto tries Japanese, Korean, Chinese, Latin.</string>
+    <string name="pref_reading_direction_title">Reading direction</string>
+    <string name="pref_reading_direction_summary">How pages are arranged in the reader.</string>
+    <string name="pref_keep_screen_on_title">Keep screen on while reading</string>
+    <string name="pref_keep_screen_on_summary">Prevent the display from sleeping in the reader.</string>
+    <string name="pref_cache_title">Cache translations</string>
+    <string name="pref_cache_summary">Re-opening a translated page is instant.</string>
+    <string name="pref_clear_cache_title">Clear translation cache</string>
+    <string name="pref_clear_cache_summary">Forget all stored OCR + translation results.</string>
+    <string name="pref_about_title">About Manga</string>
 
-    <string name="pref_hide_original_title">Hide original text</string>
-    <string name="pref_hide_original_summary">Cover the foreign text on each page with the translation. Turn this off to see both.</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_description">Manga reader with on-device OCR and translation. Bring your own files; everything runs locally on your device.</string>
+    <string name="about_github">View source on GitHub</string>
+    <string name="about_developer">Built by Shorif Uddin Piash</string>
 
-    <string name="pref_auto_scroll_title">Auto-advance pages</string>
-    <string name="pref_auto_scroll_summary">Automatically scroll to the next page after a page has been translated.</string>
-
-    <string name="pref_auto_scroll_delay_title">Auto-advance delay</string>
-    <string name="pref_auto_scroll_delay_summary">How long to read each translated page before scrolling.</string>
-
-    <string name="pref_live_interval_title">Live mode interval</string>
-    <string name="pref_live_interval_summary">How often the floating pill re-translates the screen when live mode is on.</string>
-
-    <string name="reader_auto_scroll">Auto-scroll</string>
-    <string name="live_mode_on">Live mode on \u2014 long-press the pill to stop.</string>
-    <string name="live_mode_off">Live mode off.</string>
-    <string name="live_mode_hint">Tap to translate once. Long-press to toggle live mode.</string>
+    <string name="last_read_just_now">Read just now</string>
+    <string name="last_read_minutes">Read %1$d minutes ago</string>
+    <string name="last_read_hours">Read %1$d hours ago</string>
+    <string name="last_read_days">Read %1$d days ago</string>
+    <string name="page_progress">Page %1$d / %2$d</string>
 </resources>
