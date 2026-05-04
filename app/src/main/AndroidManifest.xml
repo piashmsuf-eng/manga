@@ -57,16 +57,22 @@
             android:parentActivityName=".MainActivity" />
 
         <!-- Transparent helper to request screen capture consent.
-             NOTE: launchMode is intentionally "standard" (default). Earlier we used
-             "singleInstance" but that puts the consent activity into its own task,
-             and on some Android 14 devices the system MediaProjection consent
-             dialog doesn't deliver its result back into a singleInstance task,
-             causing the pill flow to look like it auto-closes immediately. -->
+             - launchMode = standard (NOT singleInstance: on Android 14 a singleInstance
+               task does not always receive the system MediaProjection consent result,
+               and the pill flow looks like it auto-closes).
+             - taskAffinity = "" to escape the Manga app's task. Without this, the
+               activity joins MainActivity's task, so when it finishes, MainActivity
+               gets pulled to the foreground (i.e. tapping the floating pill while on
+               a website would auto-switch to the Manga app). With an empty affinity
+               this activity lives in its own short-lived task, and finishing it
+               returns the user to whichever app they were on (Chrome/website/etc). -->
         <activity
             android:name=".overlay.MediaProjectionRequestActivity"
             android:exported="false"
             android:theme="@style/Theme.Transparent"
-            android:excludeFromRecents="true" />
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:allowTaskReparenting="false" />
 
         <!-- Floating translation pill -->
         <service

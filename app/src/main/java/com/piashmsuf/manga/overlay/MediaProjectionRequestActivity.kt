@@ -50,7 +50,13 @@ class MediaProjectionRequestActivity : AppCompatActivity() {
 
         fun intent(ctx: Context, continuous: Boolean = false, intervalMs: Int = 1500): Intent =
             Intent(ctx, MediaProjectionRequestActivity::class.java)
+                // Combined with android:taskAffinity="" in the manifest, these
+                // flags put the consent activity in its own short-lived task,
+                // so finishing it returns the user to whichever app they were
+                // looking at instead of pulling MainActivity to the foreground.
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                .addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+                .addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
                 .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
                 .putExtra(EXTRA_CONTINUOUS, continuous)
                 .putExtra(EXTRA_INTERVAL_MS, intervalMs)
