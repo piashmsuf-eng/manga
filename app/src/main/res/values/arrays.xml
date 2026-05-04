@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="ocr_scripts">
+        <item>Auto</item>
+        <item>Japanese</item>
+        <item>Korean</item>
+        <item>Chinese</item>
+        <item>Latin</item>
+    </string-array>
+    <string-array name="ocr_scripts_values">
+        <item>auto</item>
+        <item>japanese</item>
+        <item>korean</item>
+        <item>chinese</item>
+        <item>latin</item>
+    </string-array>
+
+    <string-array name="auto_scroll_delays">
+        <item>3 seconds</item>
+        <item>5 seconds</item>
+        <item>8 seconds</item>
+        <item>12 seconds</item>
+        <item>20 seconds</item>
+    </string-array>
+    <string-array name="auto_scroll_delays_values">
+        <item>3</item>
+        <item>5</item>
+        <item>8</item>
+        <item>12</item>
+        <item>20</item>
+    </string-array>
+
+    <string-array name="live_intervals">
+        <item>0.8 seconds</item>
+        <item>1.5 seconds</item>
+        <item>2.5 seconds</item>
+        <item>4 seconds</item>
+    </string-array>
+    <string-array name="live_intervals_values">
+        <item>800</item>
+        <item>1500</item>
+        <item>2500</item>
+        <item>4000</item>
+    </string-array>
+</resources>
