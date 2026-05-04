@@ -24,6 +24,7 @@ import com.piashmsuf.manga.R
 import com.piashmsuf.manga.databinding.OverlayPillBinding
 import com.piashmsuf.manga.databinding.OverlayPanelBinding
 import com.piashmsuf.manga.translate.TranslationPipeline
+import com.piashmsuf.manga.util.PillHistoryStore
 import com.piashmsuf.manga.util.Prefs
 import com.piashmsuf.manga.util.runSuspendCatching
 import kotlinx.coroutines.CoroutineScope
@@ -45,6 +46,7 @@ class OverlayService : Service() {
     private lateinit var wm: WindowManager
     private lateinit var prefs: Prefs
     private lateinit var pipeline: TranslationPipeline
+    private lateinit var historyStore: PillHistoryStore
 
     private var pillView: View? = null
     private var pillBinding: OverlayPillBinding? = null
@@ -82,6 +84,7 @@ class OverlayService : Service() {
             wm = getSystemService(WINDOW_SERVICE) as WindowManager
             prefs = Prefs(this)
             pipeline = TranslationPipeline(prefs)
+            historyStore = PillHistoryStore(this)
             startForegroundCompat()
             foregroundStarted = true
         } catch (t: Throwable) {
@@ -318,6 +321,17 @@ class OverlayService : Service() {
                     append(block.original).append("\n→ ").append(block.translated).append("\n\n")
                 }
             }.trim()
+        }
+        if (!result.isEmpty) {
+            historyStore.push(
+                PillHistoryStore.Entry(
+                    timestamp = System.currentTimeMillis(),
+                    sourceLang = result.sourceLang,
+                    targetLang = result.targetLang,
+                    original = result.combinedOriginal,
+                    translated = result.combinedTranslation,
+                )
+            )
         }
     }
 

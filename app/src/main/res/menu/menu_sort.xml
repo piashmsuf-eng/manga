@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <group android:checkableBehavior="single">
+        <item
+            android:id="@+id/sort_title_asc"
+            android:title="Title A→Z" />
+        <item
+            android:id="@+id/sort_title_desc"
+            android:title="Title Z→A" />
+        <item
+            android:id="@+id/sort_last_read"
+            android:title="Last read" />
+        <item
+            android:id="@+id/sort_pages"
+            android:title="Page count" />
+    </group>
+</menu>

@@ -11,17 +11,25 @@ import android.graphics.RectF
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
+import android.view.WindowManager
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.viewpager2.widget.ViewPager2
+import com.google.android.material.snackbar.Snackbar
+import com.piashmsuf.manga.R
 import com.piashmsuf.manga.databinding.ActivityReaderBinding
 import com.piashmsuf.manga.model.MangaItem
+import com.piashmsuf.manga.translate.TranslationCache
 import com.piashmsuf.manga.translate.TranslationPipeline
+import com.piashmsuf.manga.util.BookmarksStore
 import com.piashmsuf.manga.util.Prefs
+import com.piashmsuf.manga.util.ProgressStore
 import com.piashmsuf.manga.util.runSuspendCatching
+import com.google.android.material.slider.Slider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -39,9 +47,17 @@ class ReaderActivity : AppCompatActivity() {
     private lateinit var pipeline: TranslationPipeline
     private lateinit var source: MangaSource
     private lateinit var adapter: PageAdapter
+    private lateinit var progressStore: ProgressStore
+    private lateinit var bookmarksStore: BookmarksStore
+    private lateinit var translationCache: TranslationCache
+
     private val scope: CoroutineScope = MainScope()
     private var translateJob: Job? = null
     private var autoScrollJob: Job? = null
+    private var ignoreSlider = false
+    private lateinit var mangaUri: String
+    private var resumeTarget: Int = 0
+    private var hasResumed: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,10 +71,18 @@ class ReaderActivity : AppCompatActivity() {
         setContentView(binding.root)
         prefs = Prefs(this)
         pipeline = TranslationPipeline(prefs)
+        progressStore = ProgressStore(this)
+        bookmarksStore = BookmarksStore(this)
+        translationCache = TranslationCache(this)
+
+        if (prefs.keepScreenOn) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
 
         val title = intent.getStringExtra(EXTRA_TITLE) ?: "Manga"
         val uriString = intent.getStringExtra(EXTRA_URI) ?: run { finish(); return }
         val kindOrdinal = intent.getIntExtra(EXTRA_KIND, 0)
+        mangaUri = uriString
         val item = MangaItem(
             uri = Uri.parse(uriString),
             title = title,
@@ -71,20 +95,54 @@ class ReaderActivity : AppCompatActivity() {
 
         adapter = PageAdapter(source)
         binding.pager.adapter = adapter
+        binding.pager.orientation = when (prefs.readingDirection) {
+            "vertical" -> ViewPager2.ORIENTATION_VERTICAL
+            else -> ViewPager2.ORIENTATION_HORIZONTAL
+        }
+        // RTL: ViewPager2 reverses direction by inverting layout direction.
+        binding.pager.layoutDirection =
+            if (prefs.readingDirection == "rtl") View.LAYOUT_DIRECTION_RTL
+            else View.LAYOUT_DIRECTION_LTR
 
         binding.pager.registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
             override fun onPageSelected(position: Int) {
-                // Cancel any pending auto-scroll when the user manually moves
-                // pages — we don't want to fight a swipe that just happened.
                 autoScrollJob?.cancel()
-                binding.pageIndicator.text = "${position + 1} / ${source.pageCount}"
+                updatePageUi(position)
+                progressStore.put(mangaUri, position)
                 if (prefs.autoTranslateInReader) translateCurrentPage(position)
                 else binding.translation.visibility = View.GONE
             }
         })
-        binding.pageIndicator.text = "1 / ${max(1, source.pageCount)}"
+
+        // Initial slider configuration. Source.pageCount may be 0 for archives
+        // that fail to open; clamp so the slider still renders.
+        val maxIndex = max(0, source.pageCount - 1)
+        binding.pageSlider.valueFrom = 0f
+        binding.pageSlider.valueTo = maxIndex.toFloat().coerceAtLeast(1f)
+        binding.pageSlider.value = 0f
+        binding.pageSlider.addOnChangeListener(Slider.OnChangeListener { _, value, fromUser ->
+            if (!fromUser || ignoreSlider) return@OnChangeListener
+            val target = value.toInt().coerceIn(0, maxIndex)
+            if (target != binding.pager.currentItem) {
+                binding.pager.setCurrentItem(target, false)
+            }
+        })
+
+        binding.brightnessSlider.value = prefs.readerDimAlpha.toFloat()
+        applyBrightness(prefs.readerDimAlpha)
+        binding.brightnessSlider.addOnChangeListener(Slider.OnChangeListener { _, value, fromUser ->
+            if (!fromUser) return@OnChangeListener
+            val v = value.toInt().coerceIn(0, 200)
+            prefs.readerDimAlpha = v
+            applyBrightness(v)
+        })
+
         binding.btnClose.setOnClickListener { finish() }
         binding.btnTranslate.setOnClickListener { translateCurrentPage(binding.pager.currentItem) }
+        binding.btnBookmark.setOnClickListener { toggleBookmark(binding.pager.currentItem) }
+        binding.btnBookmark.setOnLongClickListener {
+            showBookmarksDialog(); true
+        }
         binding.btnAuto.isChecked = prefs.autoTranslateInReader
         binding.btnAuto.setOnCheckedChangeListener { _, checked ->
             prefs.autoTranslateInReader = checked
@@ -97,9 +155,76 @@ class ReaderActivity : AppCompatActivity() {
             if (!checked) autoScrollJob?.cancel()
         }
 
-        if (prefs.autoTranslateInReader && source.pageCount > 0) {
-            binding.pager.post { translateCurrentPage(0) }
+        binding.tapLeft.setOnClickListener { goPrev() }
+        binding.tapRight.setOnClickListener { goNext() }
+
+        // Resume to the last viewed page (only the very first time the pager
+        // settles; subsequent listener callbacks still drive normal updates).
+        val saved = progressStore.get(mangaUri)
+        resumeTarget = saved?.page?.coerceIn(0, max(0, source.pageCount - 1)) ?: 0
+        if (resumeTarget > 0) {
+            binding.pager.post {
+                binding.pager.setCurrentItem(resumeTarget, false)
+                hasResumed = true
+                Snackbar.make(binding.root, getString(R.string.reader_resume, resumeTarget + 1), Snackbar.LENGTH_SHORT).show()
+            }
         }
+
+        updatePageUi(resumeTarget)
+
+        if (prefs.autoTranslateInReader && source.pageCount > 0) {
+            binding.pager.post { translateCurrentPage(resumeTarget) }
+        }
+    }
+
+    private fun updatePageUi(position: Int) {
+        binding.pageIndicator.text = getString(R.string.page_progress, position + 1, max(1, source.pageCount))
+        ignoreSlider = true
+        binding.pageSlider.value = position.toFloat().coerceIn(binding.pageSlider.valueFrom, binding.pageSlider.valueTo)
+        ignoreSlider = false
+        val isBookmarked = bookmarksStore.isBookmarked(mangaUri, position)
+        binding.btnBookmark.alpha = if (isBookmarked) 1f else 0.55f
+    }
+
+    private fun applyBrightness(value: Int) {
+        binding.dimOverlay.alpha = (value / 255f).coerceIn(0f, 1f)
+    }
+
+    private fun goPrev() {
+        val target = binding.pager.currentItem - 1
+        if (target >= 0) binding.pager.setCurrentItem(target, true)
+    }
+
+    private fun goNext() {
+        val target = binding.pager.currentItem + 1
+        if (target < source.pageCount) binding.pager.setCurrentItem(target, true)
+    }
+
+    private fun toggleBookmark(page: Int) {
+        val now = bookmarksStore.toggle(mangaUri, page)
+        Snackbar.make(
+            binding.root,
+            if (now) R.string.reader_bookmark_added else R.string.reader_bookmark_removed,
+            Snackbar.LENGTH_SHORT,
+        ).show()
+        binding.btnBookmark.alpha = if (now) 1f else 0.55f
+    }
+
+    private fun showBookmarksDialog() {
+        val pages = bookmarksStore.get(mangaUri)
+        if (pages.isEmpty()) {
+            Snackbar.make(binding.root, R.string.empty_bookmarks, Snackbar.LENGTH_SHORT).show()
+            return
+        }
+        val items = pages.map { getString(R.string.page_progress, it + 1, max(1, source.pageCount)) }
+            .toTypedArray()
+        AlertDialog.Builder(this)
+            .setTitle(R.string.reader_jump_to_bookmark)
+            .setItems(items) { _, which ->
+                val target = pages[which].coerceIn(0, max(0, source.pageCount - 1))
+                binding.pager.setCurrentItem(target, true)
+            }
+            .show()
     }
 
     private fun translateCurrentPage(index: Int) {
@@ -109,25 +234,29 @@ class ReaderActivity : AppCompatActivity() {
         binding.translationProgress.visibility = View.VISIBLE
         binding.translation.visibility = View.GONE
         translateJob = scope.launch {
+            val cached = if (prefs.translationCacheEnabled) {
+                withContext(Dispatchers.IO) {
+                    translationCache.load(mangaUri, index, prefs.targetLang)
+                }
+            } else null
             val bitmap = withContext(Dispatchers.IO) { source.decodePage(index) }
             if (bitmap == null) {
                 binding.translationProgress.visibility = View.GONE
                 return@launch
             }
-            val result = runSuspendCatching { pipeline.process(bitmap) }
+            val result = cached ?: runSuspendCatching { pipeline.process(bitmap) }
                 .onFailure { binding.translation.text = it.localizedMessage ?: "Error" }
                 .getOrNull()
             binding.translationProgress.visibility = View.GONE
             if (result == null || result.isEmpty) {
                 binding.translation.text = ""
                 binding.translation.visibility = View.GONE
-                // Even on "no text", honor auto-scroll so the user keeps reading.
                 scheduleAutoScroll(index)
                 return@launch
             }
-            // Render an overlay on the current page covering the original text
-            // with the translation. When hideOriginalInReader is on the bottom
-            // caption is suppressed entirely — the translation lives on the page.
+            if (cached == null && prefs.translationCacheEnabled) {
+                withContext(Dispatchers.IO) { translationCache.save(mangaUri, index, result) }
+            }
             val overlay = renderOverlay(bitmap, result.blocks, prefs.hideOriginalInReader)
             adapter.setOverlay(index, overlay)
 
@@ -147,13 +276,11 @@ class ReaderActivity : AppCompatActivity() {
 
     private fun scheduleAutoScroll(fromIndex: Int) {
         if (!prefs.autoScrollPages) return
-        if (fromIndex >= source.pageCount - 1) return // already on the last page
+        if (fromIndex >= source.pageCount - 1) return
         val delayMs = prefs.autoScrollDelaySec.coerceAtLeast(1) * 1000L
         autoScrollJob?.cancel()
         autoScrollJob = scope.launch {
             delay(delayMs)
-            // Re-check in case the user manually swiped or toggled auto-scroll off
-            // while we were waiting.
             if (!prefs.autoScrollPages) return@launch
             val currentItem = binding.pager.currentItem
             if (currentItem != fromIndex) return@launch
@@ -168,9 +295,6 @@ class ReaderActivity : AppCompatActivity() {
     ): Bitmap {
         val output = source.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(output)
-        // When hiding originals we paint a fully opaque white box so the
-        // foreign text underneath is invisible. When showing both we use a
-        // softer, dark-translucent box so the original text remains legible.
         val bg = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = if (hideOriginal) Color.argb(255, 255, 255, 255) else Color.argb(200, 0, 0, 0)
         }
@@ -180,8 +304,6 @@ class ReaderActivity : AppCompatActivity() {
         for (block in blocks) {
             val box: Rect = block.box
             if (box.width() <= 0 || box.height() <= 0) continue
-            // Inflate the box slightly so the underlying foreign text doesn't
-            // peek out around the corners.
             val pad = (box.height() * 0.08f).coerceAtLeast(4f)
             val rect = RectF(
                 (box.left - pad).coerceAtLeast(0f),
@@ -190,12 +312,9 @@ class ReaderActivity : AppCompatActivity() {
                 (box.bottom + pad).coerceAtMost(source.height.toFloat()),
             )
             canvas.drawRoundRect(rect, 12f, 12f, bg)
-            // Pick a text size that fits the box height comfortably (roughly
-            // 4 lines of text inside the box, but never below 14sp-ish).
             fg.textSize = (rect.height() / 4.5f).coerceAtLeast(source.width / 80f)
             val maxWidth = rect.width() - 16f
             val lines = wrap(block.translated, fg, maxWidth)
-            // If the lines are taller than the box, shrink until they fit.
             while (lines.size * fg.textSize * 1.1f > rect.height() && fg.textSize > 10f) {
                 fg.textSize -= 1f
             }
@@ -227,6 +346,14 @@ class ReaderActivity : AppCompatActivity() {
         return out
     }
 
+    override fun onPause() {
+        super.onPause()
+        // Persist the current position whenever we leave the reader, so that
+        // even if the activity is killed without onDestroy running the user
+        // can still resume.
+        progressStore.put(mangaUri, binding.pager.currentItem)
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         autoScrollJob?.cancel()
@@ -248,5 +375,3 @@ class ReaderActivity : AppCompatActivity() {
             }
     }
 }
-
-

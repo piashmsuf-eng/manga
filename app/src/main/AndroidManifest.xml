@@ -56,6 +56,18 @@
             android:label="@string/title_settings"
             android:parentActivityName=".MainActivity" />
 
+        <activity
+            android:name=".about.AboutActivity"
+            android:exported="false"
+            android:label="@string/title_about"
+            android:parentActivityName=".MainActivity" />
+
+        <activity
+            android:name=".history.HistoryActivity"
+            android:exported="false"
+            android:label="@string/title_history"
+            android:parentActivityName=".MainActivity" />
+
         <!-- Transparent helper to request screen capture consent.
              - launchMode = standard (NOT singleInstance: on Android 14 a singleInstance
                task does not always receive the system MediaProjection consent result,

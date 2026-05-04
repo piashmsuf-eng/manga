@@ -42,4 +42,15 @@
         <item>2500</item>
         <item>4000</item>
     </string-array>
+
+    <string-array name="reading_directions">
+        <item>Left → right</item>
+        <item>Right → left (manga)</item>
+        <item>Vertical (webtoon)</item>
+    </string-array>
+    <string-array name="reading_directions_values">
+        <item>ltr</item>
+        <item>rtl</item>
+        <item>vertical</item>
+    </string-array>
 </resources>
